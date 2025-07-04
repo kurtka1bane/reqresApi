@@ -20,17 +20,17 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # Шаг 3: Даём права на запуск gradlew (для Linux)
+      # Шаг 3: Делаем gradlew исполняемым
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      # Шаг 4: Запускаем тесты через Gradle
+      # Шаг 4: Запускаем тесты
       - name: Run tests
         run: ./gradlew test
 
-      # Шаг 5: Сохраняем отчёты (из build/reports/tests)
+      # Шаг 5: Сохраняем отчёты (обновлённая версия!)
       - name: Upload test reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # ← Вот это исправление!
         if: always()
         with:
           name: test-reports
