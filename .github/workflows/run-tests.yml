@@ -28,12 +28,27 @@ jobs:
       - name: Run tests
         run: ./gradlew test
 
-      # Шаг 5: Сохраняем отчёты (обновлённая версия!)
+      # Шаг 5: Сохраняем отчёты
       - name: Upload test reports
-        uses: actions/upload-artifact@v4  # ← Вот это исправление!
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-reports
           path: |
             build/reports/tests/
             build/test-results/
+
+      # шаг 6: Отправка отчета в Telegram
+      - name: Send test results to Telegram
+        if: always()  # Отправлять даже если тесты упали
+        uses: appleboy/telegram-action@master
+        with:
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message: |
+            📊 *Результаты тестов Reqres.in*
+            ├─ Статус: ${{ job.status == 'success' && '✅ Успешно' || '❌ Ошибка' }}
+            ├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            ├─ Ветка: ${{ github.ref_name }}
+            └─ Артефакты: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          parse_mode: markdown
