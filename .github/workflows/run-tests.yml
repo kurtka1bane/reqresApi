@@ -22,12 +22,42 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      # Шаг 4: Запускаем тесты
-      - name: Run tests
+      # Шаг 4: Запускаем тесты с сохранением результатов
+      - name: Run tests and parse results
         id: run_tests
-        run: ./gradlew test
+        run: |
+          # Запускаем все тесты (даже если часть упадёт)
+          ./gradlew test --continue || true
+          
+          # Устанавливаем Python для парсинга
+          sudo apt-get update && sudo apt-get install -y python3
+          
+          # Создаём Python-скрипт для парсинга результатов
+          cat << 'EOF' > parse_tests.py
+          import xml.etree.ElementTree as ET
+          import glob
+          failed_tests = []
+          for xml_file in glob.glob("build/test-results/test/*.xml"):
+              tree = ET.parse(xml_file)
+              root = tree.getroot()
+              for testcase in root.findall(".//testcase"):
+                  if testcase.find("failure") is not None:
+                      classname = testcase.get("classname").split(".")[-1]
+                      name = testcase.get("name")
+                      failed_tests.append(f"{classname}.{name}")
+          print(f"::set-output name=failed::{'|'.join(failed_tests)}")
+          print(f"::set-output name=failed_count::{len(failed_tests)}")
+          EOF
+          
+          # Выполняем парсинг
+          python3 parse_tests.py >> $GITHUB_OUTPUT
+          
+          # Считаем общее количество тестов
+          TOTAL_TESTS=$(grep -o 'tests="[0-9]*"' build/test-results/test/*.xml | awk -F'"' '{sum+=$2} END {print sum}')
+          echo "::set-output name=total::$TOTAL_TESTS" >> $GITHUB_OUTPUT
+          echo "::set-output name=passed::$(($TOTAL_TESTS - ${{ steps.run_tests.outputs.failed_count }}))" >> $GITHUB_OUTPUT
 
-      # Шаг 5: Сохраняем отчёты с ID
+      # Шаг 5: Сохраняем отчёты
       - name: Upload test reports
         id: upload_artifacts
         uses: actions/upload-artifact@v4
@@ -38,24 +68,21 @@ jobs:
             build/reports/tests/
             build/test-results/
 
-      # Пауза для обработки артефактов
-      - name: Wait for artifacts processing
-        if: always()
-        run: sleep 10
-
-      # Шаг 6: Отправка отчета в Telegram
-      - name: Send test results to Telegram
+      # Шаг 6: Отправка детального отчета в Telegram
+      - name: Send detailed test results to Telegram
         if: always()
         uses: appleboy/telegram-action@v1.0.0
         with:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           message: |
-            📊 *Результаты тестов Reqres.in*
-            ├─ Статус: ${{ steps.run_tests.outcome == 'success' && '✅ Успешно' || '❌ Ошибка' }}
-            ├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            ├─ Ветка: ${{ github.ref_name }}
-            ├─ Артефакты: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})
-            └─ Альтернативная ссылка: [Все артефакты](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}?check_suite_focus=true#artifacts)
+            "📊 *Детальные результаты тестов*"
+            "├─ Всего тестов: ${{ steps.run_tests.outputs.total }}"
+            "├─ ✅ Успешно: ${{ steps.run_tests.outputs.passed }}"
+            "├─ ❌ Упало: ${{ steps.run_tests.outputs.failed_count }}"
+            "├─ Список упавших:"
+            "${{ join(fromJSON('["' + replace(steps.run_tests.outputs.failed, '|', '","') + '"]'), '\n├───── ') }}"
+            "├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            "└─ Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})"
           format: "markdown"
           disable_web_page_preview: true
