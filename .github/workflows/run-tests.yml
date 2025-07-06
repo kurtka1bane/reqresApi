@@ -1,9 +1,7 @@
 name: Run API Tests with Gradle
 
 on:
-  workflow_dispatch:  # Ручной запуск
-  push:
-    branches: [ main ]
+  workflow_dispatch:  # Только ручной запуск
 
 jobs:
   test:
@@ -26,12 +24,12 @@ jobs:
 
       # Шаг 4: Запускаем тесты
       - name: Run tests
-        id: run_tests  # Добавляем ID для проверки статуса тестов
+        id: run_tests
         run: ./gradlew test
 
       # Шаг 5: Сохраняем отчёты с ID
       - name: Upload test reports
-        id: upload_artifacts  # Важно: добавляем ID для получения artifact-id
+        id: upload_artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -40,15 +38,15 @@ jobs:
             build/reports/tests/
             build/test-results/
 
-      # Небольшая пауза для обработки артефактов
+      # Пауза для обработки артефактов
       - name: Wait for artifacts processing
         if: always()
-        run: sleep 10  # Пауза 10 секунд
+        run: sleep 10
 
       # Шаг 6: Отправка отчета в Telegram
       - name: Send test results to Telegram
-        if: always()  # Отправлять даже если тесты упали
-        uses: appleboy/telegram-action@master
+        if: always()
+        uses: appleboy/telegram-action@v5
         with:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -59,4 +57,5 @@ jobs:
             ├─ Ветка: ${{ github.ref_name }}
             ├─ Артефакты: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})
             └─ Альтернативная ссылка: [Все артефакты](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}?check_suite_focus=true#artifacts)
-          parse_mode: markdown
+          format: "markdown"
+          disable_web_page_preview: true
