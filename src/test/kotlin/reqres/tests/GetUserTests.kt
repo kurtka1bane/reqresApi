@@ -12,7 +12,7 @@ class GetUserTests {
 
     @Test
     fun `existing user returns 200 and valid body`(){
-        UserSteps.getUserById(2)
+        UserSteps.getUserById(200)
             .then()
             .body(matchesJsonSchemaInClasspath("schema_validator/user_schema.json"))
     }
