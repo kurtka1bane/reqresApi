@@ -26,10 +26,12 @@ jobs:
 
       # Шаг 4: Запускаем тесты
       - name: Run tests
+        id: run_tests  # Добавляем ID для проверки статуса тестов
         run: ./gradlew test
 
-      # Шаг 5: Сохраняем отчёты
+      # Шаг 5: Сохраняем отчёты с ID
       - name: Upload test reports
+        id: upload_artifacts  # Важно: добавляем ID для получения artifact-id
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -38,7 +40,12 @@ jobs:
             build/reports/tests/
             build/test-results/
 
-      # шаг 6: Отправка отчета в Telegram
+      # Небольшая пауза для обработки артефактов
+      - name: Wait for artifacts processing
+        if: always()
+        run: sleep 10  # Пауза 10 секунд
+
+      # Шаг 6: Отправка отчета в Telegram
       - name: Send test results to Telegram
         if: always()  # Отправлять даже если тесты упали
         uses: appleboy/telegram-action@master
@@ -47,8 +54,9 @@ jobs:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           message: |
             📊 *Результаты тестов Reqres.in*
-            ├─ Статус: ${{ job.status == 'success' && '✅ Успешно' || '❌ Ошибка' }}
+            ├─ Статус: ${{ steps.run_tests.outcome == 'success' && '✅ Успешно' || '❌ Ошибка' }}
             ├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
             ├─ Ветка: ${{ github.ref_name }}
-            └─ Артефакты: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+            ├─ Артефакты: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})
+            └─ Альтернативная ссылка: [Все артефакты](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}?check_suite_focus=true#artifacts)
           parse_mode: markdown
