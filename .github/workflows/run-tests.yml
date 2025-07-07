@@ -46,8 +46,8 @@ jobs:
                       classname = testcase.get("classname").split(".")[-1]
                       name = testcase.get("name")
                       failed_tests.append(f"{classname}.{name}")
-          # Выводим как JSON-массив
-          print(f"::set-output name=failed::{json.dumps(failed_tests)}")
+          # Выводим как JSON-массив (пустой массив, если тестов нет)
+          print(f"::set-output name=failed::{json.dumps(failed_tests) if failed_tests else '[]'}")
           print(f"::set-output name=failed_count::{len(failed_tests)}")
           EOF
           
@@ -82,8 +82,7 @@ jobs:
             "├─ Всего тестов: ${{ steps.run_tests.outputs.total }}"
             "├─ ✅ Успешно: ${{ steps.run_tests.outputs.passed }}"
             "├─ ❌ Упало: ${{ steps.run_tests.outputs.failed_count }}"
-            "├─ Список упавших:"
-            "${{ join(fromJSON(steps.run_tests.outputs.failed), '\n├───── ') }}"
+            ${{ steps.run_tests.outputs.failed_count != '0' && format('├─ Список упавших:\n├───── {0}', join(fromJSON(steps.run_tests.outputs.failed), '\n├───── ')) || '├─ Все тесты прошли успешно!' }}
             "├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
             "└─ Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})"
           format: "markdown"
