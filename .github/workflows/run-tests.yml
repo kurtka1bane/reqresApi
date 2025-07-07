@@ -68,7 +68,7 @@ jobs:
             build/reports/tests/
             build/test-results/
 
-      # Шаг 6: Отправка детального отчета в Telegram
+            # Шаг 6: Отправка детального отчета в Telegram
       - name: Send detailed test results to Telegram
         if: always()
         uses: appleboy/telegram-action@v1.0.0
@@ -81,7 +81,7 @@ jobs:
             "├─ ✅ Успешно: ${{ steps.run_tests.outputs.passed }}"
             "├─ ❌ Упало: ${{ steps.run_tests.outputs.failed_count }}"
             "├─ Список упавших:"
-            "${{ join(fromJSON('["' + replace(steps.run_tests.outputs.failed, '|', '","') + '"]'), '\n├───── ') }}"
+            "${{ join(fromJSON(format('[{0}]', replace(steps.run_tests.outputs.failed, '|', '","'))), '\n├───── ') }}"
             "├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
             "└─ Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})"
           format: "markdown"
