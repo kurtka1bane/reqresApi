@@ -36,6 +36,7 @@ jobs:
           cat << 'EOF' > parse_tests.py
           import xml.etree.ElementTree as ET
           import glob
+          import json
           failed_tests = []
           for xml_file in glob.glob("build/test-results/test/*.xml"):
               tree = ET.parse(xml_file)
@@ -45,7 +46,8 @@ jobs:
                       classname = testcase.get("classname").split(".")[-1]
                       name = testcase.get("name")
                       failed_tests.append(f"{classname}.{name}")
-          print(f"::set-output name=failed::{'|'.join(failed_tests)}")
+          # Выводим как JSON-массив
+          print(f"::set-output name=failed::{json.dumps(failed_tests)}")
           print(f"::set-output name=failed_count::{len(failed_tests)}")
           EOF
           
@@ -55,7 +57,7 @@ jobs:
           # Считаем общее количество тестов
           TOTAL_TESTS=$(grep -o 'tests="[0-9]*"' build/test-results/test/*.xml | awk -F'"' '{sum+=$2} END {print sum}')
           echo "::set-output name=total::$TOTAL_TESTS" >> $GITHUB_OUTPUT
-          echo "::set-output name=passed::$(($TOTAL_TESTS - ${{ steps.run_tests.outputs.failed_count }}))" >> $GITHUB_OUTPUT
+          echo "::set-output name=passed::$(($TOTAL_TESTS - ${steps.run_tests.outputs.failed_count}))" >> $GITHUB_OUTPUT
 
       # Шаг 5: Сохраняем отчёты
       - name: Upload test reports
@@ -68,7 +70,7 @@ jobs:
             build/reports/tests/
             build/test-results/
 
-            # Шаг 6: Отправка детального отчета в Telegram
+      # Шаг 6: Отправка детального отчета в Telegram
       - name: Send detailed test results to Telegram
         if: always()
         uses: appleboy/telegram-action@v1.0.0
@@ -81,7 +83,7 @@ jobs:
             "├─ ✅ Успешно: ${{ steps.run_tests.outputs.passed }}"
             "├─ ❌ Упало: ${{ steps.run_tests.outputs.failed_count }}"
             "├─ Список упавших:"
-            "${{ join(fromJSON(format('[{0}]', replace(steps.run_tests.outputs.failed, '|', '","'))), '\n├───── ') }}"
+            "${{ join(fromJSON(steps.run_tests.outputs.failed), '\n├───── ') }}"
             "├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
             "└─ Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})"
           format: "markdown"
