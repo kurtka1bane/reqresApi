@@ -37,27 +37,28 @@ jobs:
           import xml.etree.ElementTree as ET
           import glob
           import json
+          
           failed_tests = []
+          total_tests = 0
+          
           for xml_file in glob.glob("build/test-results/test/*.xml"):
               tree = ET.parse(xml_file)
               root = tree.getroot()
+              total_tests += int(root.get("tests", 0))
               for testcase in root.findall(".//testcase"):
                   if testcase.find("failure") is not None:
                       classname = testcase.get("classname").split(".")[-1]
                       name = testcase.get("name")
                       failed_tests.append(f"{classname}.{name}")
-          # Выводим как JSON-массив (пустой массив, если тестов нет)
-          print(f"::set-output name=failed::{json.dumps(failed_tests) if failed_tests else '[]'}")
+          
+          print(f"::set-output name=failed::{json.dumps(failed_tests)}")
           print(f"::set-output name=failed_count::{len(failed_tests)}")
+          print(f"::set-output name=total::{total_tests}")
+          print(f"::set-output name=passed::{total_tests - len(failed_tests)}")
           EOF
           
           # Выполняем парсинг
           python3 parse_tests.py >> $GITHUB_OUTPUT
-          
-          # Считаем общее количество тестов
-          TOTAL_TESTS=$(grep -o 'tests="[0-9]*"' build/test-results/test/*.xml | awk -F'"' '{sum+=$2} END {print sum}')
-          echo "::set-output name=total::$TOTAL_TESTS" >> $GITHUB_OUTPUT
-          echo "::set-output name=passed::$(($TOTAL_TESTS - ${steps.run_tests.outputs.failed_count}))" >> $GITHUB_OUTPUT
 
       # Шаг 5: Сохраняем отчёты
       - name: Upload test reports
@@ -79,10 +80,10 @@ jobs:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           message: |
             📊 *Детальные результаты тестов*
-            ├─ Всего тестов: ${{ steps.run_tests.outputs.total || '0' }}
-            ├─ ✅ Успешно: ${{ steps.run_tests.outputs.passed || '0' }}
-            ├─ ❌ Упало: ${{ steps.run_tests.outputs.failed_count || '0' }}
-            ${{ steps.run_tests.outputs.failed_count != '0' && format('├─ Список упавших:\n%s', join(fromJSON(steps.run_tests.outputs.failed || '[]'), '\n├───── ')) || '├─ Все тесты прошли успешно!' }}
+            ├─ Всего тестов: ${{ fromJSON(steps.run_tests.outputs.total || '0') }}
+            ├─ ✅ Успешно: ${{ fromJSON(steps.run_tests.outputs.passed || '0') }}
+            ├─ ❌ Упало: ${{ fromJSON(steps.run_tests.outputs.failed_count || '0') }}
+            ${{ fromJSON(steps.run_tests.outputs.failed_count || '0') != 0 && format('├─ Список упавших:\n{0}', join(fromJSON(steps.run_tests.outputs.failed || '[]'), '\n├───── ')) || '├─ Все тесты прошли успешно!' }}
             ├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
             └─ Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})
           format: "markdown"
