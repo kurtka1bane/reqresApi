@@ -28,65 +28,74 @@ jobs:
         run: |
           # Запускаем тесты с генерацией отчета
           ./gradlew test --continue || true
-          
+
           # Проверяем существование директории с результатами
-          if [ ! -d "build/test-results/test" ]; then
-            echo "Test results directory not found!" >&2
-            echo "total=0" >> $GITHUB_OUTPUT
-            echo "passed=0" >> $GITHUB_OUTPUT
-            echo "failed_count=0" >> $GITHUB_OUTPUT
-            echo "failed=[]" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
+          echo "Checking test results directory..."
+          ls -la build/test-results/test/ || true
+
           # Устанавливаем Python
           sudo apt-get update && sudo apt-get install -y python3
-          
-          # Python скрипт для парсинга с отладочной информацией
+
+          # Python скрипт для парсинга
           python3 <<'EOF'
           import xml.etree.ElementTree as ET
           import glob
           import json
           import os
           import sys
-          
+
+          print("::group::Debug information")
+          print("Current directory:", os.getcwd())
+          print("Contents of build/test-results/test/:")
+          try:
+              print(os.listdir("build/test-results/test"))
+          except Exception as e:
+              print(f"Error listing directory: {e}")
+
           failed_tests = []
           total_count = 0
-          
-          print("::debug::Starting XML files parsing", file=sys.stderr)
+
           xml_files = glob.glob("build/test-results/test/*.xml")
-          print(f"::debug::Found {len(xml_files)} XML files", file=sys.stderr)
-          
+          print(f"Found {len(xml_files)} XML files")
+
           for xml_file in xml_files:
               try:
-                  print(f"::debug::Processing file: {xml_file}", file=sys.stderr)
+                  print(f"\nProcessing file: {xml_file}")
                   tree = ET.parse(xml_file)
                   root = tree.getroot()
                   file_tests = int(root.get("tests", 0))
                   total_count += file_tests
-                  print(f"::debug::File {xml_file} contains {file_tests} tests", file=sys.stderr)
-          
+                  print(f"Total tests in file: {file_tests}")
+
                   for testcase in root.findall(".//testcase"):
                       if testcase.find("failure") is not None:
                           classname = testcase.get("classname", "")
                           name = testcase.get("name", "")
                           test_id = f"{classname.split('.')[-1]}.{name.replace('()', '')}"
                           failed_tests.append(test_id)
-                          print(f"::debug::Found failed test: {test_id}", file=sys.stderr)
+                          print(f"Found failed test: {test_id}")
               except Exception as e:
-                  print(f"::warning::Error parsing {xml_file}: {str(e)}", file=sys.stderr)
-          
-          print("::debug::Parsing completed", file=sys.stderr)
-          print(f"::debug::Total tests: {total_count}", file=sys.stderr)
-          print(f"::debug::Failed tests count: {len(failed_tests)}", file=sys.stderr)
-          print(f"::debug::Failed tests list: {failed_tests}", file=sys.stderr)
-          
+                  print(f"Error parsing {xml_file}: {str(e)}", file=sys.stderr)
+
+          print("\nSummary:")
+          print(f"Total tests: {total_count}")
+          print(f"Failed tests: {len(failed_tests)}")
+          print(f"Failed tests list: {failed_tests}")
+          print("::endgroup::")
+
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               print(f"total={total_count}", file=f)
               print(f"passed={total_count - len(failed_tests)}", file=f)
               print(f"failed_count={len(failed_tests)}", file=f)
               print(f"failed={json.dumps(failed_tests)}", file=f)
           EOF
+
+          # Дополнительная проверка
+          echo "Generated outputs:"
+          echo "total=${{ steps.run_tests.outputs.total }}"
+          echo "passed=${{ steps.run_tests.outputs.passed }}"
+          echo "failed_count=${{ steps.run_tests.outputs.failed_count }}"
+          echo "failed=${{ steps.run_tests.outputs.failed }}"
 
       # Шаг 5: Отправка отчета в Telegram
       - name: Send test results to Telegram
@@ -96,11 +105,9 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           message: |
-            📊 *Результаты тестов*
-            ▫️ Всего тестов: ${{ steps.run_tests.outputs.total || '0' }}
-            ✅ Успешно: ${{ steps.run_tests.outputs.passed || '0' }}
-            ❌ Упало: ${{ steps.run_tests.outputs.failed_count || '0' }}
-            ${{ steps.run_tests.outputs.failed_count != '0' && format('▫️ Упавшие тесты:\n%s', join(fromJSON(steps.run_tests.outputs.failed || '[]'), '\n▪️ ')) || '▫️ Все тесты прошли успешно!' }}
-            🔗 Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            📊 RAW TEST DATA:
+            Total: ${{ steps.run_tests.outputs.total }}
+            Passed: ${{ steps.run_tests.outputs.passed }}
+            Failed: ${{ steps.run_tests.outputs.failed_count }}
+            Failed names: ${{ steps.run_tests.outputs.failed }}
           format: "markdown"
-          disable_web_page_preview: true
