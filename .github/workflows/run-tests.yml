@@ -26,65 +26,67 @@ jobs:
       - name: Run tests and parse results
         id: run_tests
         run: |
-          # Запускаем все тесты (даже если часть упадёт)
+          # Запускаем тесты с генерацией отчета
           ./gradlew test --continue || true
-          
-          # Устанавливаем Python для парсинга
+
+          # Проверяем существование директории с результатами
+          if [ ! -d "build/test-results/test" ]; then
+            echo "::warning::Test results directory not found!"
+            echo "::set-output name=total::0"
+            echo "::set-output name=passed::0"
+            echo "::set-output name=failed_count::0"
+            echo "::set-output name=failed::[]"
+            exit 0
+          fi
+
+          # Устанавливаем Python
           sudo apt-get update && sudo apt-get install -y python3
-          
-          # Создаём Python-скрипт для парсинга результатов
-          cat << 'EOF' > parse_tests.py
+
+          # Python скрипт для парсинга
+          python3 <<EOF
           import xml.etree.ElementTree as ET
           import glob
           import json
-          
+          import os
+
           failed_tests = []
-          total_tests = 0
-          
+          total_count = 0
+
+          # Ищем все XML файлы с результатами
           for xml_file in glob.glob("build/test-results/test/*.xml"):
-              tree = ET.parse(xml_file)
-              root = tree.getroot()
-              total_tests += int(root.get("tests", 0))
-              for testcase in root.findall(".//testcase"):
-                  if testcase.find("failure") is not None:
-                      classname = testcase.get("classname").split(".")[-1]
-                      name = testcase.get("name")
-                      failed_tests.append(f"{classname}.{name}")
-          
-          print(f"::set-output name=failed::{json.dumps(failed_tests)}")
+              try:
+                  tree = ET.parse(xml_file)
+                  root = tree.getroot()
+                  total_count += int(root.get("tests", 0))
+
+                  for testcase in root.findall(".//testcase"):
+                      if testcase.find("failure") is not None:
+                          classname = testcase.get("classname", "").split(".")[-1]
+                          name = testcase.get("name", "")
+                          failed_tests.append(f"{classname}.{name}")
+              except Exception as e:
+                  print(f"::warning::Error parsing {xml_file}: {str(e)}")
+
+          print(f"::set-output name=total::{total_count}")
+          print(f"::set-output name=passed::{total_count - len(failed_tests)}")
           print(f"::set-output name=failed_count::{len(failed_tests)}")
-          print(f"::set-output name=total::{total_tests}")
-          print(f"::set-output name=passed::{total_tests - len(failed_tests)}")
+          print(f"::set-output name=failed::{json.dumps(failed_tests)}")
           EOF
-          
-          # Выполняем парсинг
-          python3 parse_tests.py >> $GITHUB_OUTPUT
 
-      # Шаг 5: Сохраняем отчёты
-      - name: Upload test reports
-        id: upload_artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-reports
-          path: |
-            build/reports/tests/
-            build/test-results/
-
-      # Шаг 6: Отправка детального отчета в Telegram
-      - name: Send detailed test results to Telegram
+      # Шаг 5: Отправка отчета в Telegram
+      - name: Send test results to Telegram
         if: always()
         uses: appleboy/telegram-action@v1.0.0
         with:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           message: |
-            📊 *Детальные результаты тестов*
-            ├─ Всего тестов: ${{ fromJSON(steps.run_tests.outputs.total || '0') }}
-            ├─ ✅ Успешно: ${{ fromJSON(steps.run_tests.outputs.passed || '0') }}
-            ├─ ❌ Упало: ${{ fromJSON(steps.run_tests.outputs.failed_count || '0') }}
-            ${{ fromJSON(steps.run_tests.outputs.failed_count || '0') != 0 && format('├─ Список упавших:\n{0}', join(fromJSON(steps.run_tests.outputs.failed || '[]'), '\n├───── ')) || '├─ Все тесты прошли успешно!' }}
-            ├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            └─ Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})
+            📊 *Результаты тестов*
+            ▫️ Всего тестов: ${{ steps.run_tests.outputs.total || '0' }}
+            ✅ Успешно: ${{ steps.run_tests.outputs.passed || '0' }}
+            ❌ Упало: ${{ steps.run_tests.outputs.failed_count || '0' }}
+            ${{ fromJSON(steps.run_tests.outputs.failed_count || '0') > 0 && format('▫️ Упавшие тесты:\n{0}', join(fromJSON(steps.run_tests.outputs.failed || '[]'), '\n▪️ ')) || '▫️ Все тесты прошли успешно!' }}
+            🔗 Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            📦 Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})
           format: "markdown"
           disable_web_page_preview: true
