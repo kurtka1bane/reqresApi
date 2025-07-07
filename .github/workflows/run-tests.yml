@@ -105,9 +105,12 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           message: |
-            📊 RAW TEST DATA:
-            Total: ${{ steps.run_tests.outputs.total }}
-            Passed: ${{ steps.run_tests.outputs.passed }}
-            Failed: ${{ steps.run_tests.outputs.failed_count }}
-            Failed names: ${{ steps.run_tests.outputs.failed }}
+            📊 *Результаты тестов*
+            ▫️ Всего тестов: ${{ steps.run_tests.outputs.total }}
+            ✅ Успешно: ${{ steps.run_tests.outputs.passed }}
+            ❌ Упало: ${{ steps.run_tests.outputs.failed_count }}
+            ${{ steps.run_tests.outputs.failed_count != '0' && format('▫️ Упавшие тесты:\n▪️ %s', join(fromJSON(steps.run_tests.outputs.failed), '\n▪️ ')) || '▫️ Все тесты прошли успешно!' }}
+            🔗 Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            📦 Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
           format: "markdown"
+          disable_web_page_preview: true
