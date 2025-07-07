@@ -70,7 +70,7 @@ jobs:
             build/reports/tests/
             build/test-results/
 
-      # Шаг 6: Отправка детального отчета в Telegramm
+      # Шаг 6: Отправка детального отчета в Telegram
       - name: Send detailed test results to Telegram
         if: always()
         uses: appleboy/telegram-action@v1.0.0
@@ -78,12 +78,12 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           message: |
-            "📊 *Детальные результаты тестов*"
-            "├─ Всего тестов: ${{ steps.run_tests.outputs.total }}"
-            "├─ ✅ Успешно: ${{ steps.run_tests.outputs.passed }}"
-            "├─ ❌ Упало: ${{ steps.run_tests.outputs.failed_count }}"
-            ${{ steps.run_tests.outputs.failed_count != '0' && format('├─ Список упавших:\n├───── {0}', join(fromJSON(steps.run_tests.outputs.failed), '\n├───── ')) || '├─ Все тесты прошли успешно!' }}
-            "├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-            "└─ Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})"
+            📊 *Детальные результаты тестов*
+            ├─ Всего тестов: ${{ steps.run_tests.outputs.total || '0' }}
+            ├─ ✅ Успешно: ${{ steps.run_tests.outputs.passed || '0' }}
+            ├─ ❌ Упало: ${{ steps.run_tests.outputs.failed_count || '0' }}
+            ${{ steps.run_tests.outputs.failed_count != '0' && format('├─ Список упавших:\n%s', join(fromJSON(steps.run_tests.outputs.failed || '[]'), '\n├───── ')) || '├─ Все тесты прошли успешно!' }}
+            ├─ Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            └─ Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifacts.outputs.artifact-id }})
           format: "markdown"
           disable_web_page_preview: true
