@@ -1,15 +1,14 @@
 package reqres.apiSteps
 
-import io.restassured.RestAssured
+
 import io.restassured.RestAssured.given
 import io.restassured.response.Response
-import reqres.apiSteps.UserSteps.lastUser
 import reqres.config.ApiConfig
 import reqres.models.User
 
 object UserSteps {
     // кастомный given(), что бы не повторятся в коде
-    private fun given() = RestAssured.given(ApiConfig.baseSpec)
+    private fun given() = given(ApiConfig.baseSpec)
 
     var lastUser: User? = null
 
@@ -87,35 +86,6 @@ object UserSteps {
                     job = response.path<String>("job")
                 )
             }
-    }
-
-    fun deleteUser(id: Int? = null): Response {
-        return given()
-            .`when`()
-            .delete("/users/$id")
-            .then()
-            .extract()
-            .response()
-    }
-
-    fun registerUser(name: String? = null, job: String? = null): String {
-        return given()
-            .body(mapOf("name" to name, "job" to job))
-            .post("/register")
-            .then()
-            .statusCode(200)
-            .extract()
-            .jsonPath()
-            .getString("token")
-    }
-
-    fun loginUser(email: String, password: String): Response {
-        return given()
-            .`when`()
-            .delete("/login")
-            .then()
-            .extract()
-            .response()
     }
 }
 
