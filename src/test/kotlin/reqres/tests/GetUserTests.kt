@@ -19,7 +19,7 @@ class GetUserTests {
 
     @Test
     fun `non-existent user returns 404 and empty body`(){
-        UserSteps.getUserById(15)
+        UserSteps.getUserById(1)
             .then()
             .statusCode(404)
             .body(equalTo("{}"))
