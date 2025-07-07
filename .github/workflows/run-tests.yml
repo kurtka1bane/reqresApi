@@ -26,17 +26,14 @@ jobs:
       - name: Run tests and parse results
         id: run_tests
         run: |
-          # Запускаем тесты с генерацией отчета
           ./gradlew test --continue || true
 
-          # Проверяем существование директории с результатами
           echo "Checking test results directory..."
           ls -la build/test-results/test/ || true
 
-          # Устанавливаем Python
-          sudo apt-get update && sudo apt-get install -y python3
+          sudo apt-get update
+          sudo apt-get install -y python3 jq
 
-          # Python скрипт для парсинга
           python3 <<'EOF'
           import xml.etree.ElementTree as ET
           import glob
@@ -90,14 +87,18 @@ jobs:
               print(f"failed={json.dumps(failed_tests)}", file=f)
           EOF
 
-          # Дополнительная проверка
-          echo "Generated outputs:"
-          echo "total=${{ steps.run_tests.outputs.total }}"
-          echo "passed=${{ steps.run_tests.outputs.passed }}"
-          echo "failed_count=${{ steps.run_tests.outputs.failed_count }}"
-          echo "failed=${{ steps.run_tests.outputs.failed }}"
+      # Шаг 5: Форматируем текст упавших тестов
+      - name: Format failed tests output
+        id: format_failed
+        run: |
+          if [ "${{ steps.run_tests.outputs.failed_count }}" != "0" ]; then
+            failed_tests=$(echo '${{ steps.run_tests.outputs.failed }}' | jq -r '.[]' | sed 's/^/▪️ /' | paste -sd '\n' -)
+            echo "text=▫️ Упавшие тесты:\n${failed_tests}" >> $GITHUB_OUTPUT
+          else
+            echo "text=▫️ Все тесты прошли успешно!" >> $GITHUB_OUTPUT
+          fi
 
-      # Шаг 5: Отправка отчета в Telegram
+      # Шаг 6: Отправка результатов в Telegram
       - name: Send test results to Telegram
         if: always()
         uses: appleboy/telegram-action@v1.0.0
@@ -109,7 +110,7 @@ jobs:
             ▫️ Всего тестов: ${{ steps.run_tests.outputs.total }}
             ✅ Успешно: ${{ steps.run_tests.outputs.passed }}
             ❌ Упало: ${{ steps.run_tests.outputs.failed_count }}
-            ${{ steps.run_tests.outputs.failed_count != '0' && format('▫️ Упавшие тесты:\n▪️ %s', join(fromJSON(steps.run_tests.outputs.failed), '\n▪️ ')) || '▫️ Все тесты прошли успешно!' }}
+            ${{ steps.format_failed.outputs.text }}
             🔗 Запуск: [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
             📦 Отчёт: [Скачать](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
           format: "markdown"
