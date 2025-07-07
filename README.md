@@ -16,7 +16,7 @@
 
 Тесты запускаются вручную через GitHub Actions:
 
-🔗 [Запустить тесты](https://github.com/kurtka1bane/reqresApi/actions/workflows/main.yml)
+🔗 [Запустить тесты](https://github.com/kurtka1bane/reqresApi/actions/workflows/run-tests.yml)
 
 ## 📦 Отчёты
 
