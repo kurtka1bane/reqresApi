@@ -6,6 +6,12 @@ import io.restassured.response.Response
 import reqres.config.ApiConfig
 import reqres.models.User
 
+/**
+ * Содержит общие шаги.
+ * Предоставляет методы для выполнения запросов, которые используются
+ * в тестовых классах, таких как UserTests.
+ */
+
 object UserSteps {
     // кастомный given(), что бы не повторятся в коде
     private fun given() = given(ApiConfig.baseSpec)

@@ -6,9 +6,13 @@ import reqres.apiSteps.UserSteps
 import org.hamcrest.Matchers.equalTo
 import org.assertj.core.api.Assertions.assertThat
 import org.apache.commons.lang3.RandomStringUtils
+/**
+ * Набор тестов для проверки функциональности, связанной с пользователями.
+ * Тесты используют общие шаги из UserSteps и включают дополнительные валидации.
+ */
 
 
-class GetUserTests {
+class UserTests {
 
     @Test
     fun `existing user returns 200 and valid body`(){

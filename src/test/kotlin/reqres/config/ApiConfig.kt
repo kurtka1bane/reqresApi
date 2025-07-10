@@ -3,8 +3,10 @@ package reqres.config
 import io.restassured.RestAssured
 import io.restassured.specification.RequestSpecification
 
-/** Устанавливаем конфигурацию при помощи обьекта типа RequestSpecification из
- * библиотеки RESTAssured, для сокращения повторяющегося кода в тестах */
+/**
+ * Устанавливаем конфигурацию при помощи объекта типа RequestSpecification из
+ * библиотеки RESTAssured, для сокращения повторяющегося кода в тестах
+ */
 
 object ApiConfig {
 
